@@ -1,0 +1,774 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>حاسبة الوقود والمصاريف</title>
+    <!-- Tailwind CSS لضمان مظهر وتنسيق عصري وسريع التجاوب -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- أيقونات Lucide الرائعة -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- مكتبة html2pdf لتوليد ملفات الـ PDF مباشرة من المتصفح -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap');
+        body {
+            font-family: 'Cairo', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen pb-12 transition-colors duration-200">
+
+    <!-- شريط التنقل العلوي -->
+    <header class="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3">
+        <div class="max-w-md mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <div class="p-2 bg-amber-500 text-white rounded-xl shadow-md shadow-amber-500/20">
+                    <i data-lucide="fuel" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="font-extrabold text-lg text-slate-900 dark:text-white leading-tight">حاسبة الوقود</h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">إدارة مصاريف السيارة بسهولة</p>
+                </div>
+            </div>
+            <!-- أزرار التحكم في الأعلى -->
+            <div class="flex items-center gap-1">
+                <button onclick="toggleDarkMode()" class="p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800" title="تغيير المظهر">
+                    <i id="theme-icon" data-lucide="moon" class="w-5 h-5"></i>
+                </button>
+                <button onclick="openBackupModal()" class="p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800" title="تصدير ونسخ احتياطي">
+                    <i data-lucide="file-text" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-md mx-auto px-4 mt-4 space-y-6">
+
+        <!-- لوحة الإحصائيات السريعة -->
+        <section class="grid grid-cols-2 gap-3">
+            <div class="bg-gradient-to-br from-blue-600 to-indigo-700 text-white p-4 rounded-2xl shadow-lg relative overflow-hidden">
+                <div class="absolute -right-4 -bottom-4 opacity-15">
+                    <i data-lucide="wallet" class="w-24 h-24"></i>
+                </div>
+                <p class="text-xs text-blue-100 font-medium">مصاريف هذا الشهر</p>
+                <h3 id="stat-monthly-total" class="text-xl font-extrabold mt-1">0 د.ع</h3>
+                <p class="text-[10px] text-blue-200 mt-2 flex items-center gap-1">
+                    <span id="stat-fuel-subtotal">وقود: 0</span> • <span id="stat-repair-subtotal">تصليح: 0</span>
+                </p>
+            </div>
+
+            <div class="bg-gradient-to-br from-emerald-600 to-teal-700 text-white p-4 rounded-2xl shadow-lg relative overflow-hidden">
+                <div class="absolute -right-4 -bottom-4 opacity-15">
+                    <i data-lucide="gauge" class="w-24 h-24"></i>
+                </div>
+                <p class="text-xs text-emerald-100 font-medium">معدل الاستهلاك</p>
+                <h3 id="stat-avg-consumption" class="text-xl font-extrabold mt-1">--</h3>
+                <p class="text-[10px] text-emerald-200 mt-2">كم لكل لتر واحد (كامل)</p>
+            </div>
+        </section>
+
+        <!-- تبويبات التحكم السريع -->
+        <div class="bg-white dark:bg-slate-800 p-1.5 rounded-xl flex border border-slate-200 dark:border-slate-700 shadow-sm">
+            <button onclick="switchTab('fuel')" id="tab-btn-fuel" class="flex-1 py-2 px-3 rounded-lg text-sm font-bold transition-all text-center flex items-center justify-center gap-2 bg-amber-500 text-white shadow-sm">
+                <i data-lucide="droplet" class="w-4 h-4"></i>
+                تعبئة بنزين
+            </button>
+            <button onclick="switchTab('expense')" id="tab-btn-expense" class="flex-1 py-2 px-3 rounded-lg text-sm font-bold transition-all text-center flex items-center justify-center gap-2 text-slate-600 dark:text-slate-300">
+                <i data-lucide="wrench" class="w-4 h-4"></i>
+                تصليح ومصاريف
+            </button>
+        </div>
+
+        <!-- واجهة إدخال تعبئة الوقود -->
+        <section id="panel-fuel" class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
+            <h2 class="text-base font-bold flex items-center gap-2 text-slate-800 dark:text-white">
+                <span class="w-2 h-5 bg-amber-500 rounded-full"></span>
+                تسجيل تعبئة بنزين جديدة
+            </h2>
+            <form id="fuel-form" onsubmit="saveFuelLog(event)" class="space-y-3.5">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">عداد المسافة الحالي (كم)</label>
+                    <div class="relative">
+                        <input type="number" id="fuel-odometer" required placeholder="مثال: 124500" class="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500">
+                        <i data-lucide="gauge" class="w-4 h-4 absolute left-3 top-3.5 text-slate-400"></i>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">المبلغ المدفوع (دينار/دولار)</label>
+                        <div class="relative">
+                            <input type="number" id="fuel-price" required placeholder="السعر الكلي" class="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500">
+                            <i data-lucide="banknote" class="w-4 h-4 absolute left-3 top-3.5 text-slate-400"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">كمية الوقود (لتر)</label>
+                        <div class="relative">
+                            <input type="number" step="0.01" id="fuel-liters" required placeholder="مثال: 45" class="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500">
+                            <i data-lucide="beaker" class="w-4 h-4 absolute left-3 top-3.5 text-slate-400"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">تاريخ التعبئة</label>
+                        <input type="date" id="fuel-date" required class="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500">
+                    </div>
+                    <div class="flex items-center justify-center pt-5">
+                        <label class="flex items-center gap-2 cursor-pointer select-none">
+                            <input type="checkbox" id="fuel-full" checked class="w-5 h-5 text-amber-500 border-slate-300 dark:border-slate-600 rounded focus:ring-amber-500 accent-amber-500">
+                            <span class="text-xs font-bold text-slate-700 dark:text-slate-300">التعبئة كاملة (فوّل)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full py-3 bg-amber-500 hover:bg-amber-600 active:scale-[0.98] transition-all text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                    حفظ سجل الوقود
+                </button>
+            </form>
+        </section>
+
+        <!-- واجهة إدخال المصاريف الأخرى والتصليحات -->
+        <section id="panel-expense" class="hidden bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
+            <h2 class="text-base font-bold flex items-center gap-2 text-slate-800 dark:text-white">
+                <span class="w-2 h-5 bg-blue-600 rounded-full"></span>
+                تسجيل مصاريف وتصليحات سيارة
+            </h2>
+            <form id="expense-form" onsubmit="saveExpenseLog(event)" class="space-y-3.5">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">نوع المصروف / القطعة التي تم تصليحها</label>
+                    <div class="relative">
+                        <input type="text" id="exp-title" required placeholder="مثال: تبديل دهن محرك، تصليح تبريد" class="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <i data-lucide="wrench" class="w-4 h-4 absolute left-3 top-3.5 text-slate-400"></i>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">التكلفة (دينار/دولار)</label>
+                        <div class="relative">
+                            <input type="number" id="exp-cost" required placeholder="المبلغ المدفوع" class="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <i data-lucide="banknote" class="w-4 h-4 absolute left-3 top-3.5 text-slate-400"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">التاريخ</label>
+                        <input type="date" id="exp-date" required class="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">ملاحظات إضافية (اختياري)</label>
+                    <input type="text" id="exp-notes" placeholder="مثال: تم التبديل في ورشة فلان" class="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] transition-all text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                    حفظ المصروف
+                </button>
+            </form>
+        </section>
+
+        <!-- قائمة السجلات والملخصات التاريخية -->
+        <section class="space-y-3">
+            <div class="flex items-center justify-between">
+                <h3 class="font-bold text-sm text-slate-500 dark:text-slate-400">آخر النشاطات المسجلة</h3>
+                <button onclick="clearAllDataConfirm()" class="text-xs text-red-500 hover:text-red-600 flex items-center gap-1 font-semibold">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    مسح كافة البيانات
+                </button>
+            </div>
+
+            <!-- لا توجد بيانات حالياً -->
+            <div id="no-data-placeholder" class="hidden bg-white dark:bg-slate-800 py-10 px-4 text-center rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                <div class="w-12 h-12 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <i data-lucide="clipboard" class="w-6 h-6 text-slate-400"></i>
+                </div>
+                <h4 class="font-bold text-sm text-slate-800 dark:text-slate-200">لا يوجد سجلات حتى الآن</h4>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">ابدأ بملء الاستمارة في الأعلى لتتبع مصاريف سيارتك.</p>
+            </div>
+
+            <!-- قائمة عرض السجلات -->
+            <div id="logs-container" class="space-y-2.5">
+                <!-- سيتم ملئها بواسطة جافاسكربت -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- تذييل الصفحة -->
+    <footer class="mt-12 text-center py-6 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-400 dark:text-slate-500">
+        <p class="font-semibold text-slate-500 dark:text-slate-400">جميع الحقوق محفوظة © محمد ماجد الفريجي ®</p>
+        <p class="mt-1">صُمم بحب ليسهل حياة الوالد في مراقبة صرفيات السيارة</p>
+    </footer>
+
+    <!-- هيدن ديف خاص لإنشاء مستند الـ PDF بطريقة مرتبة ومنسقة للطباعة -->
+    <div id="pdf-template" class="hidden">
+        <div style="font-family: 'Cairo', sans-serif; direction: rtl; padding: 30px; background-color: #ffffff; color: #1e293b;">
+            <!-- هيدر تقرير الـ PDF -->
+            <div style="border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1 style="font-size: 24px; font-weight: 800; color: #0f172a; margin: 0;">تقرير مصاريف ووقود السيارة</h1>
+                    <p style="font-size: 12px; color: #64748b; margin: 5px 0 0 0;">تم استخراج التقرير في: <span id="pdf-print-date"></span></p>
+                </div>
+                <div style="text-align: left;">
+                    <p style="font-size: 14px; font-weight: bold; color: #475569; margin: 0;">محمد ماجد الفريجي ®</p>
+                </div>
+            </div>
+
+            <!-- قسم الإحصائيات في الـ PDF -->
+            <div style="display: grid; grid-template-cols: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
+                <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 12px;">
+                    <span style="font-size: 12px; color: #64748b; font-weight: 600;">مجموع مصاريف الشهر الحالي</span>
+                    <h3 id="pdf-monthly-total" style="font-size: 20px; font-weight: 800; color: #1d4ed8; margin: 5px 0 0 0;">0 د.ع</h3>
+                </div>
+                <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 12px;">
+                    <span style="font-size: 12px; color: #64748b; font-weight: 600;">معدل استهلاك الوقود الكلي</span>
+                    <h3 id="pdf-avg-consumption" style="font-size: 20px; font-weight: 800; color: #047857; margin: 5px 0 0 0;">--</h3>
+                </div>
+            </div>
+
+            <!-- جدول السجلات داخل الـ PDF -->
+            <h2 style="font-size: 16px; font-weight: 700; color: #334155; margin-bottom: 10px; border-right: 4px solid #f59e0b; padding-right: 8px;">جدول النشاطات بالتفصيل</h2>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px;">
+                <thead>
+                    <tr style="background-color: #f1f5f9; border-bottom: 2px solid #cbd5e1;">
+                        <th style="padding: 10px; text-align: right; font-weight: bold; color: #475569;">التاريخ</th>
+                        <th style="padding: 10px; text-align: right; font-weight: bold; color: #475569;">النوع / الوصف</th>
+                        <th style="padding: 10px; text-align: right; font-weight: bold; color: #475569;">التفاصيل (كمية/مسافة)</th>
+                        <th style="padding: 10px; text-align: left; font-weight: bold; color: #475569;">المبلغ / الكلفة</th>
+                    </tr>
+                </thead>
+                <tbody id="pdf-table-rows">
+                    <!-- سيتم تعبئتها ديناميكياً -->
+                </tbody>
+            </table>
+
+            <!-- ذيل صفحة الـ PDF -->
+            <div style="margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 15px; text-align: center; font-size: 11px; color: #94a3b8;">
+                <p>تم توليد هذا التقرير ماليّاً وبشكل تلقائي بواسطة تطبيق حاسبة الوقود</p>
+                <p style="font-weight: bold; margin-top: 5px; color: #64748b;">جميع الحقوق محفوظة © محمد ماجد الفريجي ®</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة منبثقة للنسخ الاحتياطي وتصدير البيانات والـ PDF -->
+    <div id="backup-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div class="bg-white dark:bg-slate-800 w-full max-w-sm rounded-2xl p-5 shadow-2xl border border-slate-100 dark:border-slate-700 space-y-4">
+            <div class="flex items-center justify-between">
+                <h3 class="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                    <i data-lucide="download-cloud" class="text-blue-500"></i>
+                    تصدير التقرير والبيانات
+                </h3>
+                <button onclick="closeBackupModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                اختر طريقة تصدير البيانات المناسبة لك. يمكنك حفظ تقرير مالي مرتب بصيغة PDF أو عمل نسخة احتياطية من البيانات بصيغة ملف.
+            </p>
+            
+            <div class="space-y-3 pt-2">
+                <!-- زر تصدير PDF الجديد والمحسّن -->
+                <button onclick="exportToPDF()" class="w-full flex items-center gap-3 p-3 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white rounded-xl active:scale-95 transition-all shadow-md">
+                    <div class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center shrink-0">
+                        <i data-lucide="file-text" class="w-5 h-5 text-white"></i>
+                    </div>
+                    <div class="text-right">
+                        <span class="block text-xs font-bold">تصدير تقرير PDF</span>
+                        <span class="block text-[9px] text-red-100 font-normal">تقرير مالي وتفصيلي مرتب للطباعة</span>
+                    </div>
+                </button>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="exportData()" class="flex flex-col items-center justify-center p-3 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700/50 active:scale-95 transition-all">
+                        <i data-lucide="upload" class="w-6 h-6 text-blue-500 mb-1"></i>
+                        <span class="text-xs font-bold text-slate-800 dark:text-slate-200">حفظ كملف</span>
+                        <span class="text-[9px] text-slate-400 mt-0.5">ملف JSON احتياطي</span>
+                    </button>
+
+                    <label class="flex flex-col items-center justify-center p-3 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700/50 active:scale-95 transition-all cursor-pointer">
+                        <i data-lucide="download" class="w-6 h-6 text-emerald-500 mb-1"></i>
+                        <span class="text-xs font-bold text-slate-800 dark:text-slate-200">استيراد ملف</span>
+                        <span class="text-[9px] text-slate-400 mt-0.5 font-normal">تحميل نسخة محفوظة</span>
+                        <input type="file" id="import-file" class="hidden" accept=".json" onchange="importData(event)">
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة منبثقة للتنبيه والـ Toasts البديلة عن Alert المزعجة على الموبايل -->
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-5 py-3 rounded-full text-xs font-bold shadow-2xl flex items-center gap-2 opacity-0 scale-90 pointer-events-none transition-all duration-300">
+        <span id="toast-message">تمت العملية بنجاح!</span>
+    </div>
+
+    <!-- نافذة تأكيد حذف البيانات الكلية -->
+    <div id="confirm-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div class="bg-white dark:bg-slate-800 w-full max-w-sm rounded-2xl p-5 shadow-2xl border border-slate-100 dark:border-slate-700 space-y-4">
+            <div class="text-center">
+                <div class="w-12 h-12 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+                </div>
+                <h3 class="font-bold text-base text-slate-900 dark:text-white">هل أنت متأكد من مسح البيانات؟</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+                    سيتم مسح كافة سجلات البنزين والتصليحات بشكل نهائي ولا يمكن استعادتها بعد ذلك!
+                </p>
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button onclick="clearAllData()" class="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs active:scale-95 transition-all">
+                    نعم، امسح كل شيء
+                </button>
+                <button onclick="closeConfirmModal()" class="flex-1 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 font-bold rounded-xl text-xs active:scale-95 transition-all">
+                    تراجع وإلغاء
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- سكريبت إدارة المنطق والعمليات الحسابية والتخزين والتصدير -->
+    <script>
+        // تحميل وتخزين البيانات الأولية
+        let logs = {
+            fuel: [],
+            expenses: []
+        };
+
+        // تهيئة المتصفح وتحميل البيانات عند التشغيل
+        window.onload = function() {
+            // تعيين التاريخ التلقائي لليوم في الحقول لسهولة الإدخال
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('fuel-date').value = today;
+            document.getElementById('exp-date').value = today;
+
+            // استرجاع البيانات المخزنة محلياً
+            const storedData = localStorage.getItem('car_expense_tracker_data');
+            if (storedData) {
+                try {
+                    logs = JSON.parse(storedData);
+                    if (!logs.fuel) logs.fuel = [];
+                    if (!logs.expenses) logs.expenses = [];
+                } catch (e) {
+                    showToast('حدث خطأ في تحميل البيانات المخزنة');
+                }
+            }
+
+            // تفعيل نظام الوضع الليلي التلقائي
+            const isDark = localStorage.getItem('theme') === 'dark' || 
+                (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            if (isDark) {
+                document.documentElement.classList.add('dark');
+                document.getElementById('theme-icon').setAttribute('data-lucide', 'sun');
+            } else {
+                document.documentElement.classList.remove('dark');
+                document.getElementById('theme-icon').setAttribute('data-lucide', 'moon');
+            }
+
+            // تحديث الأيقونات في الصفحة
+            lucide.createIcons();
+
+            // حساب الإحصائيات وعرض البيانات
+            renderAll();
+        };
+
+        // تبديل المظهر الليلي والنهاري
+        function toggleDarkMode() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            const icon = document.getElementById('theme-icon');
+            icon.setAttribute('data-lucide', isDark ? 'sun' : 'moon');
+            lucide.createIcons();
+        }
+
+        // التبديل بين واجهة البنزين والمصاريف
+        function switchTab(tab) {
+            const fuelBtn = document.getElementById('tab-btn-fuel');
+            const expenseBtn = document.getElementById('tab-btn-expense');
+            const fuelPanel = document.getElementById('panel-fuel');
+            const expensePanel = document.getElementById('panel-expense');
+
+            if (tab === 'fuel') {
+                fuelBtn.className = "flex-1 py-2 px-3 rounded-lg text-sm font-bold transition-all text-center flex items-center justify-center gap-2 bg-amber-500 text-white shadow-sm";
+                expenseBtn.className = "flex-1 py-2 px-3 rounded-lg text-sm font-bold transition-all text-center flex items-center justify-center gap-2 text-slate-600 dark:text-slate-300";
+                fuelPanel.classList.remove('hidden');
+                expensePanel.classList.add('hidden');
+            } else {
+                expenseBtn.className = "flex-1 py-2 px-3 rounded-lg text-sm font-bold transition-all text-center flex items-center justify-center gap-2 bg-blue-600 text-white shadow-sm";
+                fuelBtn.className = "flex-1 py-2 px-3 rounded-lg text-sm font-bold transition-all text-center flex items-center justify-center gap-2 text-slate-600 dark:text-slate-300";
+                expensePanel.classList.remove('hidden');
+                fuelPanel.classList.add('hidden');
+            }
+        }
+
+        // إظهار نافذة إشعار منبثقة سريعة (Toast) بدلاً عن alert
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-message').innerText = message;
+            toast.className = "fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-5 py-3 rounded-full text-xs font-bold shadow-2xl flex items-center gap-2 opacity-100 scale-100 transition-all duration-300";
+            
+            setTimeout(() => {
+                toast.className = "fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-5 py-3 rounded-full text-xs font-bold shadow-2xl flex items-center gap-2 opacity-0 scale-90 pointer-events-none transition-all duration-300";
+            }, 3000);
+        }
+
+        // حفظ تعبئة البنزين
+        function saveFuelLog(e) {
+            e.preventDefault();
+
+            const odometer = parseFloat(document.getElementById('fuel-odometer').value);
+            const price = parseFloat(document.getElementById('fuel-price').value);
+            const liters = parseFloat(document.getElementById('fuel-liters').value);
+            const date = document.getElementById('fuel-date').value;
+            const full = document.getElementById('fuel-full').checked;
+
+            const newLog = {
+                id: 'fuel_' + Date.now(),
+                type: 'fuel',
+                odometer,
+                price,
+                liters,
+                date,
+                full
+            };
+
+            logs.fuel.push(newLog);
+            logs.fuel.sort((a, b) => b.odometer - a.odometer);
+
+            saveAndRefresh();
+            
+            document.getElementById('fuel-odometer').value = '';
+            document.getElementById('fuel-price').value = '';
+            document.getElementById('fuel-liters').value = '';
+            document.getElementById('fuel-date').value = new Date().toISOString().split('T')[0];
+            
+            showToast('تم حفظ سجل تعبئة الوقود بنجاح');
+        }
+
+        // حفظ المصاريف والتصليحات
+        function saveExpenseLog(e) {
+            e.preventDefault();
+
+            const title = document.getElementById('exp-title').value;
+            const cost = parseFloat(document.getElementById('exp-cost').value);
+            const date = document.getElementById('exp-date').value;
+            const notes = document.getElementById('exp-notes').value;
+
+            const newExpense = {
+                id: 'exp_' + Date.now(),
+                type: 'expense',
+                title,
+                cost,
+                date,
+                notes
+            };
+
+            logs.expenses.push(newExpense);
+            logs.expenses.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            saveAndRefresh();
+
+            document.getElementById('exp-title').value = '';
+            document.getElementById('exp-cost').value = '';
+            document.getElementById('exp-date').value = new Date().toISOString().split('T')[0];
+            document.getElementById('exp-notes').value = '';
+
+            showToast('تم تسجيل المصروف بنجاح');
+        }
+
+        // الحذف المفرّد لعنصر
+        function deleteItem(id, type) {
+            if (type === 'fuel') {
+                logs.fuel = logs.fuel.filter(item => item.id !== id);
+            } else {
+                logs.expenses = logs.expenses.filter(item => item.id !== id);
+            }
+            saveAndRefresh();
+            showToast('تم حذف السجل المحدد');
+        }
+
+        // حفظ البيانات في LocalStorage وتحديث الواجهة بالكامل
+        function saveAndRefresh() {
+            localStorage.setItem('car_expense_tracker_data', JSON.stringify(logs));
+            renderAll();
+        }
+
+        // متغيرات عامة لمخرجات الإحصائيات لاستعمالها في الـ PDF
+        let currentMonthlyTotalText = "0 د.ع";
+        let currentAvgConsumptionText = "--";
+
+        // حساب الإحصائيات وعرضها في الصفحة
+        function renderAll() {
+            const monthlyTotalEl = document.getElementById('stat-monthly-total');
+            const fuelSubtotalEl = document.getElementById('stat-fuel-subtotal');
+            const repairSubtotalEl = document.getElementById('stat-repair-subtotal');
+            const avgConsumptionEl = document.getElementById('stat-avg-consumption');
+            const container = document.getElementById('logs-container');
+            const placeholder = document.getElementById('no-data-placeholder');
+
+            // 1. حساب مصاريف هذا الشهر الجاري (وقود + تصليحات)
+            const currentMonthStr = new Date().toISOString().slice(0, 7); // YYYY-MM
+            let fuelMonthlySum = 0;
+            let repairMonthlySum = 0;
+
+            logs.fuel.forEach(item => {
+                if (item.date && item.date.startsWith(currentMonthStr)) {
+                    fuelMonthlySum += item.price;
+                }
+            });
+
+            logs.expenses.forEach(item => {
+                if (item.date && item.date.startsWith(currentMonthStr)) {
+                    repairMonthlySum += item.cost;
+                }
+            });
+
+            const totalMonthly = fuelMonthlySum + repairMonthlySum;
+            currentMonthlyTotalText = formatCurrency(totalMonthly);
+            monthlyTotalEl.innerText = currentMonthlyTotalText;
+            fuelSubtotalEl.innerText = `وقود: ${formatCurrency(fuelMonthlySum)}`;
+            repairSubtotalEl.innerText = `تصليح: ${formatCurrency(repairMonthlySum)}`;
+
+            // 2. حساب معدل استهلاك الوقود الذكي (كم لكل لتر)
+            let avgConsumption = null;
+            const sortedFuelAsc = [...logs.fuel].sort((a, b) => a.odometer - b.odometer);
+            let totalKmTraveled = 0;
+            let totalLitersConsumed = 0;
+
+            for (let i = 1; i < sortedFuelAsc.length; i++) {
+                const prev = sortedFuelAsc[i - 1];
+                const curr = sortedFuelAsc[i];
+
+                if (prev.full && curr.full) {
+                    const diffKm = curr.odometer - prev.odometer;
+                    if (diffKm > 0) {
+                        totalKmTraveled += diffKm;
+                        totalLitersConsumed += curr.liters;
+                    }
+                }
+            }
+
+            if (totalKmTraveled > 0 && totalLitersConsumed > 0) {
+                avgConsumption = (totalKmTraveled / totalLitersConsumed).toFixed(2);
+                currentAvgConsumptionText = `${avgConsumption} كم/لتر`;
+                avgConsumptionEl.innerText = currentAvgConsumptionText;
+            } else {
+                currentAvgConsumptionText = "--";
+                avgConsumptionEl.innerText = "--";
+            }
+
+            // 3. عرض السجلات التاريخية مدمجة ومرتبة زمنياً
+            const allItems = [];
+            logs.fuel.forEach(item => allItems.push(item));
+            logs.expenses.forEach(item => allItems.push(item));
+
+            allItems.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            if (allItems.length === 0) {
+                placeholder.classList.remove('hidden');
+                container.innerHTML = '';
+            } else {
+                placeholder.classList.add('hidden');
+                
+                container.innerHTML = allItems.map(item => {
+                    if (item.type === 'fuel') {
+                        return `
+                            <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between gap-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 bg-amber-50 dark:bg-amber-950/40 text-amber-500 rounded-full flex items-center justify-center shrink-0">
+                                        <i data-lucide="droplet" class="w-5 h-5"></i>
+                                    </div>
+                                    <div>
+                                        <div class="flex items-center gap-2">
+                                            <h4 class="font-bold text-sm text-slate-800 dark:text-white">تعبئة بنزين</h4>
+                                            ${item.full ? '<span class="text-[9px] bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 px-1.5 py-0.5 rounded font-bold">فوّل</span>' : ''}
+                                        </div>
+                                        <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">${item.date} • العداد: ${item.odometer.toLocaleString()} كم</p>
+                                        <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">${item.liters} لتر</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="font-extrabold text-sm text-slate-900 dark:text-white">${formatCurrency(item.price)}</span>
+                                    <button onclick="deleteItem('${item.id}', 'fuel')" class="text-slate-300 hover:text-red-500 p-1.5 rounded-lg active:scale-95 transition-all">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        return `
+                            <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between gap-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 bg-blue-50 dark:bg-blue-950/40 text-blue-500 rounded-full flex items-center justify-center shrink-0">
+                                        <i data-lucide="wrench" class="w-5 h-5"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-bold text-sm text-slate-800 dark:text-white">${item.title}</h4>
+                                        <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">${item.date} ${item.notes ? `• ${item.notes}` : ''}</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="font-extrabold text-sm text-slate-900 dark:text-white">${formatCurrency(item.cost)}</span>
+                                    <button onclick="deleteItem('${item.id}', 'expense')" class="text-slate-300 hover:text-red-500 p-1.5 rounded-lg active:scale-95 transition-all">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }
+                }).join('');
+            }
+
+            lucide.createIcons();
+        }
+
+        // تنسيق العملات بشكل مقروء
+        function formatCurrency(val) {
+            if (val >= 1000) {
+                return (val / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' الف';
+            }
+            return val.toLocaleString() + ' د.ع';
+        }
+
+        // توليد وتصدير ملف الـ PDF
+        function exportToPDF() {
+            const allItems = [];
+            logs.fuel.forEach(item => allItems.push(item));
+            logs.expenses.forEach(item => allItems.push(item));
+            allItems.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            if (allItems.length === 0) {
+                showToast('عذراً، لا توجد بيانات مسجلة لتصديرها كتقرير!');
+                return;
+            }
+
+            // ملء بيانات قالب الـ PDF المخفي
+            document.getElementById('pdf-print-date').innerText = new Date().toLocaleDateString('ar-IQ', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            document.getElementById('pdf-monthly-total').innerText = currentMonthlyTotalText;
+            document.getElementById('pdf-avg-consumption').innerText = currentAvgConsumptionText;
+
+            // توليد صفوف الجدول داخل الـ PDF
+            const tableRowsHtml = allItems.map(item => {
+                if (item.type === 'fuel') {
+                    return `
+                        <tr style="border-bottom: 1px solid #e2e8f0;">
+                            <td style="padding: 10px; color: #475569;">${item.date}</td>
+                            <td style="padding: 10px; font-weight: bold; color: #b45309;">تعبئة بنزين ${item.full ? '(كامل)' : ''}</td>
+                            <td style="padding: 10px; color: #475569;">${item.liters} لتر - عداد: ${item.odometer.toLocaleString()} كم</td>
+                            <td style="padding: 10px; text-align: left; font-weight: bold; color: #0f172a;">${formatCurrency(item.price)}</td>
+                        </tr>
+                    `;
+                } else {
+                    return `
+                        <tr style="border-bottom: 1px solid #e2e8f0;">
+                            <td style="padding: 10px; color: #475569;">${item.date}</td>
+                            <td style="padding: 10px; font-weight: bold; color: #1d4ed8;">${item.title}</td>
+                            <td style="padding: 10px; color: #475569;">${item.notes || '—'}</td>
+                            <td style="padding: 10px; text-align: left; font-weight: bold; color: #0f172a;">${formatCurrency(item.cost)}</td>
+                        </tr>
+                    `;
+                }
+            }).join('');
+
+            document.getElementById('pdf-table-rows').innerHTML = tableRowsHtml;
+
+            // إعدادات مكتبة html2pdf لتوليد ملف احترافي
+            const element = document.getElementById('pdf-template');
+            element.classList.remove('hidden'); // إظهاره مؤقتاً لغرض الالتقاط
+
+            const opt = {
+                margin:       10,
+                filename:     `تقرير_مصاريف_السيارة_${new Date().toISOString().slice(0,10)}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            showToast('جاري تحضير ملف الـ PDF...');
+
+            // إنشاء وتحميل الـ PDF
+            html2pdf().set(opt).from(element).save().then(() => {
+                element.classList.add('hidden'); // إعادة إخفائه بعد الانتهاء
+                closeBackupModal();
+                showToast('تم تحميل ملف التقرير بنجاح!');
+            }).catch(err => {
+                element.classList.add('hidden');
+                showToast('فشل تصدير ملف الـ PDF');
+            });
+        }
+
+        // نافذة التأكيد لحذف البيانات الكلية
+        function clearAllDataConfirm() {
+            document.getElementById('confirm-modal').classList.remove('hidden');
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirm-modal').classList.add('hidden');
+        }
+
+        // مسح كل البيانات
+        function clearAllData() {
+            logs = { fuel: [], expenses: [] };
+            saveAndRefresh();
+            closeConfirmModal();
+            showToast('تم مسح جميع البيانات بنجاح');
+        }
+
+        // التحكم بنافذة النسخ الاحتياطي
+        function openBackupModal() {
+            document.getElementById('backup-modal').classList.remove('hidden');
+        }
+
+        function closeBackupModal() {
+            document.getElementById('backup-modal').classList.add('hidden');
+        }
+
+        // تصدير البيانات كملف JSON للتحميل
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(logs));
+            const downloadAnchor = document.createElement('a');
+            const dateStr = new Date().toISOString().slice(0, 10);
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `car_log_backup_${dateStr}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showToast('تم تحميل ملف النسخة الاحتياطية');
+        }
+
+        // استيراد البيانات من ملف JSON تم تحميله مسبقاً
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedLogs = JSON.parse(e.target.result);
+                    if (importedLogs.fuel || importedLogs.expenses) {
+                        logs = {
+                            fuel: importedLogs.fuel || [],
+                            expenses: importedLogs.expenses || []
+                        };
+                        saveAndRefresh();
+                        closeBackupModal();
+                        showToast('تم استيراد النسخة الاحتياطية بنجاح!');
+                    } else {
+                        showToast('تنسيق ملف الاستيراد غير صحيح');
+                    }
+                } catch (err) {
+                    showToast('فشل قراءة الملف أو استيراده');
+                }
+            };
+            reader.readAsText(file);
+        }
+    </script>
+</body>
+</html>
+
+
